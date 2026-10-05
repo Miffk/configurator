@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Демо 3D-конфигуратора дивана: выбор размера, ткани, цвета и ножек с расчётом цены.">
+<title>Конфигуратор Сонора</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Tenor+Sans&display=swap">
+<style>
+/* Layout: full-height showroom stage with the 3D model on the left, configuration column on the right; stacks on phones */
+:root{
+  --bg:#E7EBE6; --panel:#F7F8F5; --fg:#17201B; --muted:#5D6A63; --line:#D2D9D3;
+  --accent:#2D5A4C; --on-accent:#F2F7F4; --stage-a:#F3F5F1; --stage-b:#D7DDD6; --chip:rgba(255,255,255,.78);
+  --scrim:rgba(12,18,15,.5);
+  --f-display:"Tenor Sans", Georgia, "Times New Roman", serif;
+  --f-body:"Onest", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1311; --panel:#151A18; --fg:#E5EBE7; --muted:#93A099; --line:#28302C;
+    --accent:#86C2AC; --on-accent:#0D1713; --stage-a:#222A26; --stage-b:#101513; --chip:rgba(24,30,27,.8);
+    --scrim:rgba(0,0,0,.6); color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1311; --panel:#151A18; --fg:#E5EBE7; --muted:#93A099; --line:#28302C;
+  --accent:#86C2AC; --on-accent:#0D1713; --stage-a:#222A26; --stage-b:#101513; --chip:rgba(24,30,27,.8);
+  --scrim:rgba(0,0,0,.6); color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.45}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.app{display:grid;grid-template-columns:minmax(0,1fr) 420px;height:100%}
+.stage{position:relative;min-height:0;overflow:hidden;background:radial-gradient(120% 90% at 50% 38%,var(--stage-a),var(--stage-b))}
+#c{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+#c:active{cursor:grabbing}
+.stage-top,.stage-bottom{position:absolute;left:0;right:0;display:flex;justify-content:space-between;gap:12px;padding:22px 26px;pointer-events:none}
+.stage-top{top:0;align-items:flex-start}
+.stage-bottom{bottom:0;align-items:flex-end}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
+h1{font-family:var(--f-display);font-weight:400;font-size:44px;line-height:1;margin:6px 0 6px;letter-spacing:.01em}
+.sub{margin:0;color:var(--muted);font-size:14px}
+.chip{background:var(--chip);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dims b{font-weight:600}
+.hint{margin:0;font-size:13px;color:var(--muted);max-width:30ch}
+.tools{display:flex;gap:8px;pointer-events:auto}
+.tool{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.tool svg{width:16px;height:16px}
+.tool[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.loader{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:14px;pointer-events:none}
+
+.panel{display:flex;flex-direction:column;min-height:0;background:var(--panel);border-left:1px solid var(--line)}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line);padding:0 12px;background:var(--panel)}
+.tab{background:none;border:0;border-bottom:2px solid transparent;padding:18px 4px 14px;font-size:14px;color:var(--muted);cursor:pointer}
+.tab.on{color:var(--fg);border-bottom-color:var(--accent);font-weight:600}
+.panel-body{flex:1;overflow:auto;padding:22px 26px 30px}
+.pane{display:flex;flex-direction:column;gap:28px}
+.group{display:flex;flex-direction:column;gap:12px}
+.g-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+h3{margin:0;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.g-val{font-size:14px;font-weight:500;text-align:right}
+.seg{display:grid;gap:8px}
+.seg-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.seg-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.opt{display:flex;flex-direction:column;gap:3px;text-align:left;padding:12px;border:1px solid var(--line);border-radius:10px;background:transparent;cursor:pointer;min-width:0;transition:border-color .15s}
+.opt:hover{border-color:var(--muted)}
+.opt b{font-weight:600;font-size:14px}
+.opt span{font-size:12px;color:var(--muted)}
+.opt.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.fab{flex-direction:row;align-items:center;gap:10px}
+.fab .txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.prev{flex:none;width:34px;height:34px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.swatches{display:flex;flex-wrap:wrap;gap:12px}
+.sw{width:42px;height:42px;border-radius:50%;border:0;padding:0;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14);transition:transform .15s}
+.sw:hover{transform:scale(1.06)}
+.sw.on{outline:2px solid var(--accent);outline-offset:3px}
+.tx-velour{background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.38),transparent 62%),var(--c)}
+.tx-boucle{background:radial-gradient(circle,rgba(255,255,255,.4) 1.1px,transparent 1.7px) 0 0/6px 6px,radial-gradient(circle,rgba(0,0,0,.16) 1.1px,transparent 1.7px) 3px 3px/6px 6px,var(--c)}
+.tx-rogozhka{background:repeating-linear-gradient(0deg,rgba(0,0,0,.13) 0 1px,transparent 1px 4px),repeating-linear-gradient(90deg,rgba(255,255,255,.16) 0 1px,transparent 1px 4px),var(--c)}
+.tx-leather{background:linear-gradient(135deg,rgba(255,255,255,.32),transparent 48%,rgba(0,0,0,.18)),var(--c)}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:transparent;cursor:pointer;text-align:left;width:100%}
+.knob{flex:none;width:40px;height:24px;border-radius:999px;background:var(--line);position:relative;transition:background .2s}
+.knob::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--panel);transition:transform .2s}
+.switch[aria-checked="true"] .knob{background:var(--accent)}
+.switch[aria-checked="true"] .knob::after{transform:translateX(16px)}
+.note{margin:0;font-size:13px;color:var(--muted)}
+
+.summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 26px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);background:var(--panel)}
+.price{font-family:var(--f-display);font-size:30px;line-height:1.1;font-variant-numeric:tabular-nums;white-space:nowrap}
+.meta{font-size:12px;color:var(--muted);margin-top:4px}
+.cta{flex:none;background:var(--accent);color:var(--on-accent);border:0;border-radius:999px;padding:14px 22px;font-weight:600;cursor:pointer;white-space:nowrap}
+.cta:hover{filter:brightness(1.08)}
+
+.modal{position:fixed;inset:0;z-index:20;background:var(--scrim);display:grid;place-items:center;padding:16px}
+.sheet{width:100%;max-width:470px;max-height:calc(100% - 32px);overflow:auto;background:var(--panel);color:var(--fg);border-radius:18px;padding:26px;border:1px solid var(--line)}
+.sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.sheet h2{font-family:var(--f-display);font-weight:400;font-size:28px;margin:0 0 16px}
+.x{background:none;border:0;font-size:24px;line-height:1;cursor:pointer;color:var(--muted);padding:2px 6px}
+dl{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;margin:0 0 18px;font-size:14px}
+dt{color:var(--muted)}
+dd{margin:0;text-align:right;font-weight:500;font-variant-numeric:tabular-nums}
+dl .total{font-family:var(--f-display);font-size:22px;font-weight:400}
+form{display:flex;flex-direction:column;gap:10px}
+label{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:5px}
+input{font:inherit;font-size:15px;color:var(--fg);background:transparent;border:1px solid var(--line);border-radius:10px;padding:12px}
+input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
+.err{color:#C0473B;font-size:13px;margin:0}
+.done{display:flex;flex-direction:column;gap:10px}
+.done p{margin:0}
+
+@media (max-width:860px){
+  html,body{height:auto}
+  .app{display:block;height:auto}
+  .stage{height:58svh;min-height:340px}
+  .panel{border-left:0;border-top:1px solid var(--line)}
+  .tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:3;padding:0 8px}
+  .panel-body{overflow:visible;padding:20px 16px 26px}
+  .summary{position:sticky;bottom:0;z-index:3;padding-inline:16px}
+  h1{font-size:32px}
+  .stage-top{padding:14px 16px}
+  .stage-bottom{padding:12px 16px}
+  .hint{display:none}
+  .eyebrow{font-size:10px;white-space:nowrap}
+  .dims{font-size:12px;padding:6px 10px}
+  .price{font-size:24px}
+  .cta{padding:13px 18px}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<style>body{margin:0}</style>
+</head>
+<body>
+<div class="app">
+  <section class="stage" id="stage" aria-label="3D-модель">
+    <canvas id="c"></canvas>
+    <div class="loader" id="loader">Загружаем 3D-модель…</div>
+    <div class="stage-top">
+      <div>
+        <div class="eyebrow">Демо · 3D-конфигуратор</div>
+        <h1>Сонора</h1>
+        <p class="sub" id="subline">Диван</p>
+      </div>
+      <div class="chip dims" id="dims">—</div>
+    </div>
+    <div class="stage-bottom">
+      <p class="hint">Вращайте модель · нажмите на деталь, чтобы настроить её</p>
+      <div class="tools">
+        <button class="chip tool" id="rotBtn" aria-pressed="true" title="Автоповорот">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg>
+          Вращение
+        </button>
+        <button class="chip tool" id="resetBtn" title="Вернуть ракурс">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+          Ракурс
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <aside class="panel">
+    <nav class="tabs" role="tablist" id="tabs">
+      <button class="tab on" role="tab" data-tab="model">Модель</button>
+      <button class="tab" role="tab" data-tab="body">Обивка</button>
+      <button class="tab" role="tab" data-tab="cushions">Подушки</button>
+      <button class="tab" role="tab" data-tab="legs">Ножки</button>
+    </nav>
+    <div class="panel-body" id="panelBody"></div>
+    <div class="summary">
+      <div>
+        <div class="price" id="price">—</div>
+        <div class="meta">Изготовление 21–28 дней · <span id="sku"></span></div>
+      </div>
+      <button class="cta" id="orderBtn">Оформить заявку</button>
+    </div>
+  </aside>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <div class="sheet-head">
+      <h2 id="mTitle">Ваша комплектация</h2>
+      <button class="x" id="mClose" aria-label="Закрыть">×</button>
+    </div>
+    <div id="mForm">
+      <dl id="mList"></dl>
+      <form id="orderForm" novalidate>
+        <label>Имя<input id="fName" name="name" autocomplete="name" placeholder="Как к вам обращаться"></label>
+        <label>Телефон<input id="fPhone" name="phone" type="tel" autocomplete="tel" placeholder="+7 900 000-00-00"></label>
+        <p class="err" id="fErr" hidden>Укажите телефон, чтобы менеджер мог связаться с вами.</p>
+        <button class="cta" type="submit">Отправить заявку</button>
+      </form>
+    </div>
+    <div class="done" id="mDone" hidden>
+      <p><b>Заявка сформирована.</b></p>
+      <p class="note">Это демо-версия. В рабочем проекте заявка вместе с выбранной комплектацией и артикулом уходит в CRM, на почту или в Telegram менеджеру.</p>
+      <button class="cta" id="mOk">Готово</button>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script>
+  setTimeout(function(){ if(!window.__sonoraReady){ var l=document.getElementById('loader'); if(l) l.textContent='Не удалось загрузить 3D-движок. Обновите страницу.'; } }, 12000);
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+/* ---------- Данные ---------- */
+const FABRICS = [
+  { key:'velour', name:'Велюр', note:'Мягкий ворс с отливом', code:'ВЛ', delta:.08,
+    phys:{rough:.8, sheen:.85, sheenRough:.35, lift:.18, tex:'velour', ns:.12},
+    colors:[['Изумруд','#1E4A40'],['Графит','#3B3F45'],['Индиго','#2B375E'],['Пудра','#C7A39E'],['Горчица','#B48A2F'],['Бордо','#5E2430']] },
+  { key:'boucle', name:'Букле', note:'Петельная фактура', code:'БК', delta:.15,
+    phys:{rough:.96, sheen:.5, sheenRough:.7, lift:.25, tex:'boucle', ns:1.1},
+    colors:[['Молоко','#E8E3D8'],['Овсянка','#CDBEA4'],['Шалфей','#9AA58F'],['Туман','#A9AEB0'],['Какао','#6E5646'],['Антрацит','#3C3E40']] },
+  { key:'rogozhka', name:'Рогожка', note:'Плотное плетение', code:'РГ', delta:0,
+    phys:{rough:.92, sheen:.25, sheenRough:.6, lift:.2, tex:'weave', ns:.8},
+    colors:[['Лён','#CEC2AC'],['Олива','#6E6D48'],['Морская волна','#3F6A6A'],['Деним','#3A4A66'],['Серый меланж','#828584'],['Уголь','#2F3133']] },
+  { key:'leather', name:'Экокожа', note:'Матовая, легко чистится', code:'ЭК', delta:.12,
+    phys:{rough:.45, sheen:0, sheenRough:.5, lift:0, coat:.35, coatRough:.45, tex:'grain', ns:.25},
+    colors:[['Коньяк','#8B4A24'],['Шоколад','#4A2E24'],['Слоновая кость','#E4D9C4'],['Чёрный','#1D1D1F']] },
+];
+const LEG_FINISH = [
+  { key:'oak', name:'Дуб натуральный', code:'ДБ', delta:0, color:'#C79F72', wood:true, metal:0, rough:.55, css:'linear-gradient(135deg,#e0bd93,#ad8156)' },
+  { key:'walnut', name:'Орех', code:'ОР', delta:3500, color:'#6E4A33', wood:true, metal:0, rough:.5, css:'linear-gradient(135deg,#8a5f40,#4c301e)' },
+  { key:'black', name:'Чёрный металл', code:'ЧМ', delta:2900, color:'#1E1F21', wood:false, metal:.8, rough:.38, css:'linear-gradient(135deg,#4a4b4e,#111214)' },
+  { key:'brass', name:'Латунь', code:'ЛТ', delta:6900, color:'#C9A25E', wood:false, metal:1, rough:.26, css:'linear-gradient(135deg,#f0d698,#9e7735)' },
+];
+const LEG_SHAPE = [ {key:'cone', name:'Конус', note:'Со скосом наружу'}, {key:'cyl', name:'Цилиндр', note:'Прямые'}, {key:'block', name:'Брусок', note:'Квадратные'} ];
+const SEATS = { 1:{short:'Кресло', long:'кресло', base:54900}, 2:{short:'2-местный', long:'2-местный диван', base:89900}, 3:{short:'3-местный', long:'3-местный диван', base:119900} };
+const DEPTH = { std:{name:'Стандартная', d:.86}, deep:{name:'Глубокая', d:.96} };
+const FILL = { ppu:{name:'ППУ высокой плотности', note:'Упругая посадка'}, down:{name:'ППУ + пух', note:'+4 900 ₽ за место'} };
+const LEG_H = .16, ARM_W = .16, UNIT = .62, H_TOTAL = .88;
+
+const state = { seats:2, depth:'std', fabric:0, bodyIdx:0, cushionIdx:0, match:true, fill:'ppu', legShape:'cone', legFinish:3, tab:'model' };
+
+const rub = n => Math.round(n).toLocaleString('ru-RU') + ' ₽';
+const widthOf = n => n*UNIT + 2*ARM_W;
+const fab = () => FABRICS[state.fabric];
+const bodyColor = () => fab().colors[state.bodyIdx];
+const cushColor = () => fab().colors[state.match ? state.bodyIdx : state.cushionIdx];
+
+function calcPrice(){
+  const n = state.seats;
+  let p = SEATS[n].base + (state.depth==='deep' ? 5000*n : 0);
+  p *= 1 + fab().delta;
+  if (state.fill==='down') p += 4900*n;
+  p += LEG_FINISH[state.legFinish].delta;
+  return Math.round(p/100)*100;
+}
+function sku(){
+  return `СН-${state.seats}${state.depth==='deep'?'Г':'С'}-${fab().code}${String(state.bodyIdx+1).padStart(2,'0')}-${LEG_FINISH[state.legFinish].code}`;
+}
+
+/* ---------- Процедурные текстуры ---------- */
+function blur(a, w, h, passes){
+  let src = a, dst = new Float32Array(w*h);
+  for (let p=0;p<passes;p++){
+    for (let y=0;y<h;y++) for (let x=0;x<w;x++){
+      let s=0;
+      for (let dy=-1;dy<=1;dy++) for (let dx=-1;dx<=1;dx++) s += src[((y+dy+h)%h)*w + (x+dx+w)%w];
+      dst[y*w+x] = s/9;
+    }
+    [src,dst] = [dst,src];
+  }
+  return src;
+}
+function normalTex(hgt, w, h, strength, repeat){
+  const cv = document.createElement('canvas'); cv.width=w; cv.height=h;
+  const ctx = cv.getContext('2d'); const img = ctx.createImageData(w,h);
+  for (let y=0;y<h;y++) for (let x=0;x<w;x++){
+    const dx = hgt[y*w+(x+1)%w] - hgt[y*w+(x-1+w)%w];
+    const dy = hgt[((y+1)%h)*w+x] - hgt[((y-1+h)%h)*w+x];
+    let nx=-dx*strength, ny=-dy*strength, nz=1; const l=Math.hypot(nx,ny,nz); nx/=l; ny/=l; nz/=l;
+    const i=(y*w+x)*4; img.data[i]=(nx*.5+.5)*255; img.data[i+1]=(ny*.5+.5)*255; img.data[i+2]=(nz*.5+.5)*255; img.data[i+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const t = new THREE.CanvasTexture(cv); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(repeat,repeat); t.anisotropy=4;
+  return t;
+}
+function noiseH(w,h,passes){ const a=new Float32Array(w*h); for(let i=0;i<a.length;i++) a[i]=Math.random(); return blur(a,w,h,passes); }
+function boucleH(S){
+  const cv=document.createElement('canvas'); cv.width=cv.height=S; const c=cv.getContext('2d');
+  c.fillStyle='#808080'; c.fillRect(0,0,S,S); c.lineWidth=2.2;
+  for (let i=0;i<1700;i++){
+    const x=Math.random()*S, y=Math.random()*S, r=2.5+Math.random()*3.5, v=150+Math.random()*105|0;
+    c.strokeStyle=`rgb(${v},${v},${v})`;
+    for (const ox of [-S,0,S]) for (const oy of [-S,0,S]){ c.beginPath(); c.arc(x+ox,y+oy,r,0,Math.PI*2); c.stroke(); }
+  }
+  const d=c.getImageData(0,0,S,S).data; const a=new Float32Array(S*S);
+  for (let i=0;i<a.length;i++) a[i]=d[i*4]/255;
+  return blur(a,S,S,1);
+}
+function weaveH(S){
+  const a=new Float32Array(S*S), cell=16;
+  for (let y=0;y<S;y++) for (let x=0;x<S;x++){
+    const cx=(x/cell|0), cy=(y/cell|0), odd=(cx+cy)%2;
+    const t = odd ? Math.sin(Math.PI*((y%(cell/2))/(cell/2))) : Math.sin(Math.PI*((x%(cell/2))/(cell/2)));
+    a[y*S+x] = .25 + .6*t + Math.random()*.08;
+  }
+  return blur(a,S,S,1);
+}
+function woodMap(){
+  const w=256,h=512, cv=document.createElement('canvas'); cv.width=w; cv.height=h; const c=cv.getContext('2d');
+  const img=c.createImageData(w,h);
+  for (let y=0;y<h;y++) for (let x=0;x<w;x++){
+    const v = 222 + 22*Math.sin((x + 7*Math.sin(y*.025) + 3*Math.sin(y*.11))*.33) + Math.random()*10;
+    const i=(y*w+x)*4; img.data[i]=v; img.data[i+1]=v*.97; img.data[i+2]=v*.93; img.data[i+3]=255;
+  }
+  c.putImageData(img,0,0);
+  const t=new THREE.CanvasTexture(cv); t.colorSpace=THREE.SRGBColorSpace; t.wrapS=t.wrapT=THREE.RepeatWrapping; return t;
+}
+const S=256;
+const TEX = {
+  velour: normalTex(noiseH(S,S,3),S,S,6,3),
+  boucle: normalTex(boucleH(S),S,S,5,3),
+  weave:  normalTex(weaveH(S),S,S,4,5),
+  grain:  normalTex(noiseH(S,S,2),S,S,5,3),
+};
+const WOOD = woodMap();
+
+/* ---------- Сцена ---------- */
+const stage = document.getElementById('stage');
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = .95;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), .04).texture;
+
+const camera = new THREE.PerspectiveCamera(32, 1, .05, 50);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0,.42,0);
+controls.enableDamping = true; controls.dampingFactor = .08;
+controls.enablePan = false;
+controls.minDistance = 1.3; controls.maxDistance = 7;
+controls.minPolarAngle = .25; controls.maxPolarAngle = Math.PI*.48;
+controls.autoRotate = true; controls.autoRotateSpeed = .7;
+
+const key = new THREE.DirectionalLight(0xffffff, 1.5);
+key.position.set(2.2,4.2,2.6); key.castShadow = true;
+key.shadow.mapSize.set(2048,2048);
+Object.assign(key.shadow.camera, {left:-2.6,right:2.6,top:2.6,bottom:-2.6,near:.5,far:12});
+key.shadow.bias = -.0004; key.shadow.normalBias = .02;
+scene.add(key);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a908b, .35));
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(14,14), new THREE.ShadowMaterial({ opacity:.2 }));
+ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
+
+// мягкая контактная тень
+const aoCv = document.createElement('canvas'); aoCv.width=aoCv.height=128;
+{ const c=aoCv.getContext('2d'); const g=c.createRadialGradient(64,64,10,64,64,64); g.addColorStop(0,'rgba(0,0,0,.55)'); g.addColorStop(1,'rgba(0,0,0,0)'); c.fillStyle=g; c.fillRect(0,0,128,128); }
+const ao = new THREE.Mesh(new THREE.PlaneGeometry(1,1), new THREE.MeshBasicMaterial({ map:new THREE.CanvasTexture(aoCv), transparent:true, depthWrite:false, opacity:.55 }));
+ao.rotation.x = -Math.PI/2; ao.position.y = .002; scene.add(ao);
+
+const bodyMat = new THREE.MeshPhysicalMaterial();
+const cushMat = new THREE.MeshPhysicalMaterial();
+const legMat  = new THREE.MeshPhysicalMaterial();
+const PART_MAT = { body:bodyMat, cushions:cushMat, legs:legMat };
+const WHITE = new THREE.Color('#ffffff');
+
+function applyFabric(mat, hex){
+  const p = fab().phys;
+  mat.color.set(hex);
+  mat.roughness = p.rough; mat.metalness = 0;
+  mat.sheen = p.sheen; mat.sheenRoughness = p.sheenRough;
+  mat.sheenColor.set(hex).lerp(WHITE, p.lift);
+  mat.clearcoat = p.coat||0; mat.clearcoatRoughness = p.coatRough||0;
+  mat.normalMap = TEX[p.tex]; mat.normalScale.set(p.ns,p.ns);
+  mat.needsUpdate = true;
+}
+function applyLegs(){
+  const f = LEG_FINISH[state.legFinish];
+  legMat.color.set(f.color); legMat.map = f.wood ? WOOD : null;
+  legMat.metalness = f.metal; legMat.roughness = f.rough;
+  legMat.clearcoat = f.wood ? .25 : 0; legMat.clearcoatRoughness = .5;
+  legMat.needsUpdate = true;
+}
+function applyMaterials(){ applyFabric(bodyMat, bodyColor()[1]); applyFabric(cushMat, cushColor()[1]); applyLegs(); }
+
+let sofa = null;
+function legGeometry(){
+  if (state.legShape==='cone') return new THREE.CylinderGeometry(.024,.013,LEG_H,28);
+  if (state.legShape==='cyl')  return new THREE.CylinderGeometry(.019,.019,LEG_H,28);
+  return new RoundedBoxGeometry(.045,LEG_H,.045,2,.008);
+}
+function buildSofa(){
+  if (sofa){ sofa.traverse(o=>{ if(o.isMesh) o.geometry.dispose(); }); scene.remove(sofa); }
+  sofa = new THREE.Group();
+  const n = state.seats, D = DEPTH[state.depth].d, inner = n*UNIT, W = widthOf(n);
+  const add = (geo, mat, part, x, y, z, rx=0, rz=0) => {
+    const m = new THREE.Mesh(geo, mat); m.position.set(x,y,z); m.rotation.x=rx; m.rotation.z=rz;
+    m.castShadow = m.receiveShadow = true; m.userData.part = part; sofa.add(m); return m;
+  };
+  add(new RoundedBoxGeometry(inner+.02,.18,D-.04,3,.02), bodyMat,'body', 0, LEG_H+.09, .01);
+  for (const s of [-1,1]) add(new RoundedBoxGeometry(ARM_W,.48,D,4,.06), bodyMat,'body', s*(W/2-ARM_W/2), LEG_H+.24, 0);
+  add(new RoundedBoxGeometry(W,.72,.16,4,.05), bodyMat,'body', 0, LEG_H+.36, -D/2+.08);
+  const gap=.012, cw=(inner-gap*(n-1))/n, seatD=D-.17;
+  for (let i=0;i<n;i++){
+    const x = -inner/2 + cw/2 + i*(cw+gap);
+    add(new RoundedBoxGeometry(cw,.16,seatD,5,.06), cushMat,'cushions', x, LEG_H+.26, -D/2+.16+seatD/2+.005);
+    add(new RoundedBoxGeometry(cw-.01,.36,.17,5,.07), cushMat,'cushions', x, LEG_H+.52, -D/2+.16+.095, -.14);
+  }
+  const lx=W/2-.07, lz=D/2-.07, tilt = state.legShape==='cone' ? .07 : 0;
+  const spots=[[-lx,-lz],[lx,-lz],[-lx,lz],[lx,lz]]; if (n>=3) spots.push([0,-lz],[0,lz]);
+  const lg = legGeometry();
+  for (const [x,z] of spots) add(lg, legMat,'legs', x, LEG_H/2, z, -Math.sign(z)*tilt, x===0?0:Math.sign(x)*tilt);
+  scene.add(sofa);
+  ao.scale.set(W+.7, D+.7, 1);
+}
+
+/* ---------- Камера ---------- */
+let camGoal = null;
+function fitDist(){
+  const W = widthOf(state.seats), D = DEPTH[state.depth].d;
+  const r = Math.hypot(W, H_TOTAL, D)/2;
+  const v = camera.fov*Math.PI/180, hf = 2*Math.atan(Math.tan(v/2)*camera.aspect);
+  return r / Math.sin(Math.min(v,hf)/2) * 1.02;
+}
+const HOME_DIR = new THREE.Vector3(.62,.42,1).normalize();
+function resetView(){ camGoal = HOME_DIR.clone().multiplyScalar(fitDist()); }
+function refit(){ const cur = camera.position.clone().sub(controls.target); camGoal = cur.setLength(fitDist()); }
+
+function resize(){
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w,h,false); camera.aspect = w/h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage);
+
+/* ---------- Выбор детали кликом ---------- */
+const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+function pick(e){
+  const r = canvas.getBoundingClientRect();
+  ptr.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
+  ray.setFromCamera(ptr, camera);
+  const hit = sofa ? ray.intersectObjects(sofa.children,false)[0] : null;
+  return hit ? hit.object.userData.part : null;
+}
+let down = null;
+canvas.addEventListener('pointerdown', e=>{ down = {x:e.clientX, y:e.clientY}; });
+canvas.addEventListener('pointerup', e=>{
+  if (!down) return; const moved = Math.hypot(e.clientX-down.x, e.clientY-down.y); down = null;
+  if (moved > 6) return;
+  const part = pick(e); if (part){ setTab(part); }
+});
+canvas.addEventListener('pointermove', e=>{ if (e.buttons) return; canvas.style.cursor = pick(e) ? 'pointer' : 'grab'; });
+
+let flash = null;
+function flashPart(part){
+  const m = PART_MAT[part]; if (!m) return;
+  for (const k in PART_MAT) PART_MAT[k].emissiveIntensity = 0;
+  m.emissive.set(getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#2D5A4C');
+  flash = { m, t0: performance.now() };
+}
+
+const rotBtn = document.getElementById('rotBtn');
+function setRotate(on){ controls.autoRotate = on; rotBtn.setAttribute('aria-pressed', String(on)); }
+controls.addEventListener('start', ()=> setRotate(false));
+rotBtn.addEventListener('click', ()=> setRotate(!controls.autoRotate));
+document.getElementById('resetBtn').addEventListener('click', resetView);
+
+function loop(now){
+  requestAnimationFrame(loop);
+  if (camGoal){
+    const cur = camera.position.clone().sub(controls.target).lerp(camGoal, .09);
+    camera.position.copy(controls.target).add(cur);
+    if (cur.distanceTo(camGoal) < .004) camGoal = null;
+  }
+  if (flash){
+    const t = (now - flash.t0)/900;
+    flash.m.emissiveIntensity = t<1 ? .32*Math.sin(Math.PI*Math.min(t*2,1)) * (1-t) + (t<.5? .0:0) : 0;
+    if (t>=1){ flash.m.emissiveIntensity = 0; flash = null; }
+  }
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+/* ---------- Интерфейс ---------- */
+const body = document.getElementById('panelBody');
+const TEXCLS = { velour:'tx-velour', boucle:'tx-boucle', rogozhka:'tx-rogozhka', leather:'tx-leather' };
+
+function swatches(kind, activeIdx){
+  const f = fab();
+  return `<div class="swatches">${f.colors.map(([n,h],i)=>
+    `<button class="sw ${TEXCLS[f.key]} ${i===activeIdx?'on':''}" style="--c:${h}" data-k="${kind}" data-v="${i}" aria-label="${n}" title="${n}"></button>`).join('')}</div>`;
+}
+function paneModel(){
+  return `<div class="pane">
+    <div class="group"><div class="g-head"><h3>Количество мест</h3><span class="g-val">${SEATS[state.seats].short}</span></div>
+      <div class="seg seg-3">${[1,2,3].map(n=>`<button class="opt ${state.seats===n?'on':''}" data-k="seats" data-v="${n}"><b>${SEATS[n].short}</b><span>${Math.round(widthOf(n)*100)} см</span></button>`).join('')}</div></div>
+    <div class="group"><div class="g-head"><h3>Глубина посадки</h3><span class="g-val">${Math.round(DEPTH[state.depth].d*100)} см</span></div>
+      <div class="seg seg-2">
+        <button class="opt ${state.depth==='std'?'on':''}" data-k="depth" data-v="std"><b>Стандартная</b><span>86 см</span></button>
+        <button class="opt ${state.depth==='deep'?'on':''}" data-k="depth" data-v="deep"><b>Глубокая</b><span>96 см · +5 000 ₽ за место</span></button>
+      </div></div>
+    <p class="note">Размеры и цена пересчитываются сразу. Нажмите на корпус, подушки или ножки на модели, чтобы перейти к их настройке.</p>
+  </div>`;
+}
+function paneBody(){
+  const f = fab();
+  return `<div class="pane">
+    <div class="group"><div class="g-head"><h3>Ткань</h3><span class="g-val">${f.name}</span></div>
+      <div class="seg seg-2">${FABRICS.map((x,i)=>`<button class="opt fab ${state.fabric===i?'on':''}" data-k="fabric" data-v="${i}">
+        <span class="prev ${TEXCLS[x.key]}" style="--c:${x.colors[Math.min(state.bodyIdx,x.colors.length-1)][1]}"></span>
+        <span class="txt"><b>${x.name}</b><span>${x.note}</span><span>${x.delta? '+'+Math.round(x.delta*100)+'%' : 'Базовая цена'}</span></span></button>`).join('')}</div></div>
+    <div class="group"><div class="g-head"><h3>Цвет корпуса</h3><span class="g-val">${bodyColor()[0]}</span></div>${swatches('bodyIdx', state.bodyIdx)}</div>
+  </div>`;
+}
+function paneCushions(){
+  return `<div class="pane">
+    <div class="group">
+      <button class="switch" role="switch" aria-checked="${state.match}" data-k="match" data-v="x"><span><b>В цвет корпуса</b><br><span class="note">Подушки повторяют цвет обивки</span></span><span class="knob"></span></button></div>
+    <div class="group"><div class="g-head"><h3>Цвет подушек · ${fab().name}</h3><span class="g-val">${cushColor()[0]}</span></div>${swatches('cushionIdx', state.match?state.bodyIdx:state.cushionIdx)}</div>
+    <div class="group"><div class="g-head"><h3>Наполнитель</h3></div>
+      <div class="seg seg-2">${Object.entries(FILL).map(([k,v])=>`<button class="opt ${state.fill===k?'on':''}" data-k="fill" data-v="${k}"><b>${v.name}</b><span>${v.note}</span></button>`).join('')}</div></div>
+  </div>`;
+}
+function paneLegs(){
+  const lf = LEG_FINISH[state.legFinish];
+  return `<div class="pane">
+    <div class="group"><div class="g-head"><h3>Форма</h3><span class="g-val">${LEG_SHAPE.find(s=>s.key===state.legShape).name}</span></div>
+      <div class="seg seg-3">${LEG_SHAPE.map(s=>`<button class="opt ${state.legShape===s.key?'on':''}" data-k="legShape" data-v="${s.key}"><b>${s.name}</b><span>${s.note}</span></button>`).join('')}</div></div>
+    <div class="group"><div class="g-head"><h3>Отделка</h3><span class="g-val">${lf.name}${lf.delta?' · +'+rub(lf.delta):''}</span></div>
+      <div class="swatches">${LEG_FINISH.map((f,i)=>`<button class="sw ${state.legFinish===i?'on':''}" style="background:${f.css}" data-k="legFinish" data-v="${i}" aria-label="${f.name}" title="${f.name}"></button>`).join('')}</div></div>
+    <p class="note">Высота ножек 16 см, на каждой — регулируемый подпятник.</p>
+  </div>`;
+}
+const PANES = { model:paneModel, body:paneBody, cushions:paneCushions, legs:paneLegs };
+
+let shownPrice = 0, priceAnim = null;
+function renderPrice(){
+  const target = calcPrice(), from = shownPrice || target, t0 = performance.now();
+  cancelAnimationFrame(priceAnim);
+  const el = document.getElementById('price');
+  const step = now => { const t = Math.min((now-t0)/350,1), e = 1-Math.pow(1-t,3); shownPrice = from + (target-from)*e; el.textContent = rub(Math.round(shownPrice/100)*100); if (t<1) priceAnim = requestAnimationFrame(step); };
+  priceAnim = requestAnimationFrame(step);
+  document.getElementById('sku').textContent = sku();
+}
+function renderInfo(){
+  const W = Math.round(widthOf(state.seats)*100), D = Math.round(DEPTH[state.depth].d*100);
+  document.getElementById('dims').innerHTML = `Ш <b>${W}</b> · Г <b>${D}</b> · В <b>${Math.round(H_TOTAL*100)}</b> см`;
+  document.getElementById('subline').textContent = `${SEATS[state.seats].short === 'Кресло' ? 'Кресло' : 'Диван ' + SEATS[state.seats].short} · ${fab().name}, ${bodyColor()[0].toLowerCase()}`;
+}
+function render(){
+  body.innerHTML = PANES[state.tab]();
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on', t.dataset.tab===state.tab));
+  renderInfo(); renderPrice();
+}
+function setTab(tab){ state.tab = tab; render(); flashPart(tab); }
+document.getElementById('tabs').addEventListener('click', e=>{ const b=e.target.closest('[data-tab]'); if (b) setTab(b.dataset.tab); });
+
+body.addEventListener('click', e=>{
+  const b = e.target.closest('[data-k]'); if (!b) return;
+  const k = b.dataset.k, v = b.dataset.v;
+  if (k==='seats'){ state.seats=+v; buildSofa(); refit(); }
+  else if (k==='depth'){ state.depth=v; buildSofa(); refit(); }
+  else if (k==='fabric'){ state.fabric=+v; const L=fab().colors.length; state.bodyIdx=Math.min(state.bodyIdx,L-1); state.cushionIdx=Math.min(state.cushionIdx,L-1); applyMaterials(); flashPart('body'); }
+  else if (k==='bodyIdx'){ state.bodyIdx=+v; applyMaterials(); }
+  else if (k==='cushionIdx'){ state.cushionIdx=+v; state.match=false; applyMaterials(); }
+  else if (k==='match'){ state.match=!state.match; if (!state.match) state.cushionIdx=state.bodyIdx; applyMaterials(); flashPart('cushions'); }
+  else if (k==='fill'){ state.fill=v; }
+  else if (k==='legShape'){ state.legShape=v; buildSofa(); flashPart('legs'); }
+  else if (k==='legFinish'){ state.legFinish=+v; applyLegs(); }
+  render();
+});
+
+/* ---------- Заявка ---------- */
+const modal = document.getElementById('modal');
+function openModal(){
+  const f = fab(), lf = LEG_FINISH[state.legFinish];
+  const W = Math.round(widthOf(state.seats)*100), D = Math.round(DEPTH[state.depth].d*100);
+  const rows = [
+    ['Модель', `Сонора, ${SEATS[state.seats].long}`],
+    ['Габариты', `${W} × ${D} × ${Math.round(H_TOTAL*100)} см`],
+    ['Обивка', `${f.name}, ${bodyColor()[0].toLowerCase()}`],
+    ['Подушки', state.match ? 'в цвет корпуса' : cushColor()[0].toLowerCase()],
+    ['Наполнитель', FILL[state.fill].name],
+    ['Ножки', `${LEG_SHAPE.find(s=>s.key===state.legShape).name.toLowerCase()}, ${lf.name.toLowerCase()}`],
+    ['Артикул', sku()],
+    ['Срок', '21–28 рабочих дней'],
+  ];
+  document.getElementById('mList').innerHTML = rows.map(([a,b])=>`<dt>${a}</dt><dd>${b}</dd>`).join('') + `<dt>Итого</dt><dd class="total">${rub(calcPrice())}</dd>`;
+  document.getElementById('mForm').hidden = false; document.getElementById('mDone').hidden = true; document.getElementById('fErr').hidden = true;
+  modal.hidden = false;
+}
+function closeModal(){ modal.hidden = true; }
+document.getElementById('orderBtn').addEventListener('click', openModal);
+document.getElementById('mClose').addEventListener('click', closeModal);
+document.getElementById('mOk').addEventListener('click', closeModal);
+modal.addEventListener('click', e=>{ if (e.target===modal) closeModal(); });
+document.addEventListener('keydown', e=>{ if (e.key==='Escape' && !modal.hidden) closeModal(); });
+document.getElementById('orderForm').addEventListener('submit', e=>{
+  e.preventDefault();
+  const ph = document.getElementById('fPhone').value.replace(/\D/g,'');
+  if (ph.length < 10){ document.getElementById('fErr').hidden = false; return; }
+  document.getElementById('mForm').hidden = true; document.getElementById('mDone').hidden = false;
+});
+
+/* ---------- Старт ---------- */
+applyMaterials(); buildSofa(); resize();
+camera.position.copy(controls.target).add(HOME_DIR.clone().multiplyScalar(fitDist()));
+render();
+requestAnimationFrame(loop);
+window.__sonoraReady = true;
+window.__snapCamera = () => { if (camGoal){ camera.position.copy(controls.target).add(camGoal); camGoal = null; } };
+document.getElementById('loader').hidden = true;
+</script>
+
+</body>
+</html>
